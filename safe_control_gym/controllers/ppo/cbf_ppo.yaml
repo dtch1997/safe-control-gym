@@ -6,6 +6,7 @@ clip_obs: 10.
 clip_reward: 10.
 
 # Loss args
+safety_coef: 0
 gamma:  0.99
 use_gae:  False
 gae_lambda: 0.95

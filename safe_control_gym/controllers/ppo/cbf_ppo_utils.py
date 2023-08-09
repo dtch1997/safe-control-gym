@@ -23,6 +23,7 @@ class CBFPPOAgent:
                  clip_param=0.2,
                  target_kl=0.01,
                  entropy_coef=0.01,
+                 safety_coef=0.0,
                  actor_lr=0.0003,
                  critic_lr=0.001,
                  opt_epochs=10,
@@ -36,6 +37,7 @@ class CBFPPOAgent:
         self.clip_param = clip_param
         self.target_kl = target_kl
         self.entropy_coef = entropy_coef
+        self.safety_coef = safety_coef
         self.opt_epochs = opt_epochs
         self.mini_batch_size = mini_batch_size
         # Model.
@@ -47,6 +49,7 @@ class CBFPPOAgent:
         # Optimizers.
         self.actor_opt = torch.optim.Adam(self.ac.actor.parameters(), actor_lr)
         self.critic_opt = torch.optim.Adam(self.ac.critic.parameters(), critic_lr)
+        self.safety_critic_opt = torch.optim.Adam(self.cbf.parameters(), critic_lr)
 
     def to(self,
            device
@@ -83,6 +86,9 @@ class CBFPPOAgent:
                             ):
         '''Returns policy loss(es) given batch of data.'''
         obs, act, logp_old, adv = batch['obs'], batch['act'], batch['logp'], batch['adv']
+        safety_adv = batch['safety_adv']
+        # Combine the two advantages.
+        adv = adv + self.safety_coef * safety_adv
         dist, logp = self.ac.actor(obs, act)
         # Policy.
         ratio = torch.exp(logp - logp_old)
@@ -109,6 +115,19 @@ class CBFPPOAgent:
             value_loss = 0.5 * (v_cur - ret).pow(2).mean()
         return value_loss
 
+    def compute_safety_value_loss(self, batch):
+        '''Returns value loss(es) given batch of data.'''
+        obs, ret, v_old = batch['obs'], batch['safety_ret'], batch['safety_v']
+        v_cur = self.cbf(obs)
+        if self.use_clipped_value:
+            v_old_clipped = v_old + (v_cur - v_old).clamp(-self.clip_param, self.clip_param)
+            v_loss = (v_cur - ret).pow(2)
+            v_loss_clipped = (v_old_clipped - ret).pow(2)
+            value_loss = 0.5 * torch.max(v_loss, v_loss_clipped).mean()
+        else:
+            value_loss = 0.5 * (v_cur - ret).pow(2).mean()
+        return value_loss
+
     def update(self,
                rollouts,
                device='cpu'
@@ -117,7 +136,7 @@ class CBFPPOAgent:
         results = defaultdict(list)
         num_mini_batch = rollouts.max_length * rollouts.batch_size // self.mini_batch_size
         for _ in range(self.opt_epochs):
-            p_loss_epoch, v_loss_epoch, e_loss_epoch, kl_epoch = 0, 0, 0, 0
+            p_loss_epoch, v_loss_epoch, sv_loss_epoch, e_loss_epoch, kl_epoch = 0, 0, 0, 0, 0
             for batch in rollouts.sampler(self.mini_batch_size, device):
                 # Actor update.
                 policy_loss, entropy_loss, approx_kl = self.compute_policy_loss(batch)
@@ -131,12 +150,20 @@ class CBFPPOAgent:
                 self.critic_opt.zero_grad()
                 value_loss.backward()
                 self.critic_opt.step()
+                # CBF update. 
+                safety_value_loss = self.compute_safety_value_loss(batch)
+                self.safety_critic_opt.zero_grad()
+                safety_value_loss.backward()
+                self.safety_critic_opt.step()
+
                 p_loss_epoch += policy_loss.item()
                 v_loss_epoch += value_loss.item()
+                sv_loss_epoch += safety_value_loss.item()
                 e_loss_epoch += entropy_loss.item()
                 kl_epoch += approx_kl.item()
             results['policy_loss'].append(p_loss_epoch / num_mini_batch)
             results['value_loss'].append(v_loss_epoch / num_mini_batch)
+            results['safety_value_loss'].append(sv_loss_epoch / num_mini_batch)
             results['entropy_loss'].append(e_loss_epoch / num_mini_batch)
             results['approx_kl'].append(kl_epoch / num_mini_batch)
         results = {k: sum(v) / len(v) for k, v in results.items()}
@@ -289,7 +316,20 @@ class CBFPPOBuffer(object):
             'terminal_v': {
                 'vshape': (T, N, 1)
             },
+            # TODO: Make safety rewards optional?
             'safety_rew': {
+                'vshape': (T, N, 1)
+            },
+            'safety_v': {
+                'vshape': (T, N, 1)
+            },
+            'safety_ret': {
+                'vshape': (T, N, 1)
+            },
+            'safety_adv': {
+                'vshape': (T, N, 1)
+            },
+            'safety_terminal_v': {
                 'vshape': (T, N, 1)
             }
         }

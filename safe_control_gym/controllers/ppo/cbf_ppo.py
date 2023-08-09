@@ -64,7 +64,8 @@ class CBFPPO(BaseController):
                               actor_lr=self.actor_lr,
                               critic_lr=self.critic_lr,
                               opt_epochs=self.opt_epochs,
-                              mini_batch_size=self.mini_batch_size)
+                              mini_batch_size=self.mini_batch_size, 
+                              safety_coef=self.safety_coef)
         self.agent.to(self.device)
         # Pre-/post-processing.
         self.obs_normalizer = BaseNormalizer()
@@ -256,12 +257,14 @@ class CBFPPO(BaseController):
         for _ in range(self.rollout_steps):
             with torch.no_grad():
                 act, v, logp = self.agent.ac.step(torch.FloatTensor(obs).to(self.device))
+                safety_v = self.agent.cbf(torch.FloatTensor(obs).to(self.device)).cpu().numpy()
             next_obs, rew, done, info = self.env.step(act)
             next_obs = self.obs_normalizer(next_obs)
             rew = self.reward_normalizer(rew, done)
             mask = 1 - done.astype(float)   
             # Time truncation is not the same as true termination.
             terminal_v = np.zeros_like(v)
+            safety_terminal_v = np.zeros_like(safety_v)
             safety_rew = np.zeros_like(rew)
             for idx, inf in enumerate(info['n']):
                 if 'terminal_info' not in inf:
@@ -272,13 +275,17 @@ class CBFPPO(BaseController):
                     terminal_obs = inf['terminal_observation']
                     terminal_obs_tensor = torch.FloatTensor(terminal_obs).unsqueeze(0).to(self.device)
                     terminal_val = self.agent.ac.critic(terminal_obs_tensor).squeeze().detach().cpu().numpy()
+                    safety_terminal_val = self.agent.cbf(terminal_obs_tensor).squeeze().detach().cpu().numpy()
                     terminal_v[idx] = terminal_val
-            rollouts.push({'obs': obs, 'act': act, 'rew': rew, 'mask': mask, 'v': v, 'logp': logp, 'terminal_v': terminal_v, 'safety_rew':safety_rew})
+                    safety_terminal_v[idx] = safety_terminal_val
+            rollouts.push({'obs': obs, 'act': act, 'rew': rew, 'mask': mask, 'v': v, 'logp': logp, 'terminal_v': terminal_v, 
+                           'safety_rew':safety_rew, 'safety_v': safety_v, 'safety_terminal_v': safety_terminal_v})
             obs = next_obs
         self.obs = obs
         self.total_steps += self.rollout_batch_size * self.rollout_steps
         # Learn from rollout batch.
         last_val = self.agent.ac.critic(torch.FloatTensor(obs).to(self.device)).detach().cpu().numpy()
+        last_safety_val = self.agent.cbf(torch.FloatTensor(obs).to(self.device)).detach().cpu().numpy()
         ret, adv = compute_returns_and_advantages(rollouts.rew,
                                                   rollouts.v,
                                                   rollouts.mask,
@@ -287,9 +294,19 @@ class CBFPPO(BaseController):
                                                   gamma=self.gamma,
                                                   use_gae=self.use_gae,
                                                   gae_lambda=self.gae_lambda)
+        safety_ret, safety_adv = compute_returns_and_advantages(rollouts.safety_rew,
+                                                  rollouts.safety_v,
+                                                  rollouts.mask,
+                                                  rollouts.safety_terminal_v,
+                                                  last_safety_val,
+                                                  gamma=self.gamma,
+                                                  use_gae=self.use_gae,
+                                                  gae_lambda=self.gae_lambda)
         rollouts.ret = ret
+        rollouts.safety_ret = safety_ret
         # Prevent divide-by-0 for repetitive tasks.
         rollouts.adv = (adv - adv.mean()) / (adv.std() + 1e-6)
+        rollouts.safety_adv = (safety_adv - safety_adv.mean()) / (safety_adv.std() + 1e-6)
         results = self.agent.update(rollouts, self.device)
         results.update({'step': self.total_steps, 'elapsed_time': time.time() - start})
         return results
@@ -314,7 +331,7 @@ class CBFPPO(BaseController):
         self.logger.add_scalars(
             {
                 k: results[k]
-                for k in ['policy_loss', 'value_loss', 'entropy_loss', 'approx_kl']
+                for k in ['policy_loss', 'value_loss', 'safety_value_loss', 'entropy_loss', 'approx_kl']
             },
             step,
             prefix='loss')
