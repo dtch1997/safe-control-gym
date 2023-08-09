@@ -25,9 +25,9 @@ from safe_control_gym.math_and_models.normalization import BaseNormalizer, MeanS
 
 from safe_control_gym.controllers.base_controller import BaseController
 from safe_control_gym.controllers.ppo.ppo_utils import PPOAgent, PPOBuffer, compute_returns_and_advantages
+from safe_control_gym.envs.env_wrappers.safety_history_wrapper import SafetyHistoryWrapper
 
-
-class PPO(BaseController):
+class CBFPPO(BaseController):
     '''Proximal policy optimization.'''
 
     def __init__(self,
@@ -39,6 +39,8 @@ class PPO(BaseController):
                  seed=0,
                  **kwargs):
         super().__init__(env_func, training, checkpoint_path, output_dir, use_gpu, seed, **kwargs)
+        # Add SafetyHistoryWrapper to the env func
+        env_func = lambda **kwargs: SafetyHistoryWrapper(env_func(**kwargs))
         # Task.
         if self.training:
             # Training and testing.
@@ -254,6 +256,7 @@ class PPO(BaseController):
             with torch.no_grad():
                 act, v, logp = self.agent.ac.step(torch.FloatTensor(obs).to(self.device))
             next_obs, rew, done, info = self.env.step(act)
+            safety_rew = 1 - info['constraint_violation_in_history']
             next_obs = self.obs_normalizer(next_obs)
             rew = self.reward_normalizer(rew, done)
             mask = 1 - done.astype(float)
@@ -268,7 +271,7 @@ class PPO(BaseController):
                     terminal_obs_tensor = torch.FloatTensor(terminal_obs).unsqueeze(0).to(self.device)
                     terminal_val = self.agent.ac.critic(terminal_obs_tensor).squeeze().detach().cpu().numpy()
                     terminal_v[idx] = terminal_val
-            rollouts.push({'obs': obs, 'act': act, 'rew': rew, 'mask': mask, 'v': v, 'logp': logp, 'terminal_v': terminal_v})
+            rollouts.push({'obs': obs, 'act': act, 'rew': rew, 'mask': mask, 'v': v, 'logp': logp, 'terminal_v': terminal_v}, safety_rew=safety_rew)
             obs = next_obs
         self.obs = obs
         self.total_steps += self.rollout_batch_size * self.rollout_steps

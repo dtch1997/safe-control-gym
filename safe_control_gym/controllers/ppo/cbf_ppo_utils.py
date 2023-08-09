@@ -12,7 +12,7 @@ from safe_control_gym.math_and_models.neural_networks import MLP
 from safe_control_gym.math_and_models.distributions import Normal, Categorical
 
 
-class PPOAgent:
+class CBFPPOAgent:
     '''A PPO class that encapsulates models, optimizers and update functions.'''
 
     def __init__(self,
@@ -43,6 +43,7 @@ class PPOAgent:
                                  act_space,
                                  hidden_dims=[hidden_dim] * 2,
                                  activation='tanh')
+        self.cbf = MLPCritic(obs_space.shape[0], [hidden_dim] * 2, 'tanh')
         # Optimizers.
         self.actor_opt = torch.optim.Adam(self.ac.actor.parameters(), actor_lr)
         self.critic_opt = torch.optim.Adam(self.ac.critic.parameters(), critic_lr)
@@ -234,7 +235,7 @@ class MLPActorCritic(nn.Module):
         return a.cpu().numpy()
 
 
-class PPOBuffer(object):
+class CBFPPOBuffer(object):
     '''Storage for a batch of episodes during training.
 
     Attributes:
@@ -286,6 +287,9 @@ class PPOBuffer(object):
                 'vshape': (T, N, 1)
             },
             'terminal_v': {
+                'vshape': (T, N, 1)
+            },
+            'safety_reward': {
                 'vshape': (T, N, 1)
             }
         }
