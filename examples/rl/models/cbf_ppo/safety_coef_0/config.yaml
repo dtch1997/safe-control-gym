@@ -1,0 +1,227 @@
+algo: cbf_ppo
+algo_config:
+  actor_lr: 0.001
+  bounded: false
+  clip_obs: 10.0
+  clip_param: 0.2
+  clip_reward: 10.0
+  critic_lr: 0.001
+  deque_size: 10
+  entropy_coef: 0.01
+  eval_batch_size: 10
+  eval_interval: 1000
+  eval_save_best: true
+  gae_lambda: 0.95
+  gamma: 0.99
+  hidden_dim: 128
+  log_interval: 1000
+  max_env_steps: 500000
+  max_grad_norm: 0.5
+  mini_batch_size: 256
+  norm_obs: false
+  norm_reward: false
+  num_checkpoints: 10
+  num_workers: 1
+  opt_epochs: 20
+  rollout_batch_size: 4
+  rollout_steps: 1000
+  safety_coef: 10
+  save_interval: 1000
+  supervise_coef: 0
+  target_kl: 0.01
+  tensorboard: true
+  use_clipped_value: false
+  use_gae: true
+eval_output_dir: ''
+eval_output_path: test_results.pkl
+func: train
+output_dir: ./unsafe_rl_temp_data/seed2_Aug-09-09-47-55_v0.5.0-464-gb9f5787
+overrides:
+- ./config_overrides/quadrotor_3D/cbf_ppo_quadrotor_3D.yaml
+- ./config_overrides/quadrotor_3D/quadrotor_3D_track.yaml
+render: false
+restore: null
+seed: 2
+set_test_seed: false
+tag: unsafe_rl_temp_data/
+task: quadrotor
+task_config:
+  adversary_disturbance: null
+  adversary_disturbance_offset: 0.0
+  adversary_disturbance_scale: 0.01
+  constraint_penalty: -1
+  constraints:
+  - constrained_variable: state
+    constraint_form: default_constraint
+    lower_bounds:
+    - -2
+    - -1
+    - -2
+    - -1
+    - 0
+    - -1
+    - -0.2
+    - -0.2
+    - -0.2
+    - -1
+    - -1
+    - -1
+    upper_bounds:
+    - 2
+    - 1
+    - 2
+    - 1
+    - 2
+    - 1
+    - 0.2
+    - 0.2
+    - 0.2
+    - 1
+    - 1
+    - 1
+  - constrained_variable: input
+    constraint_form: default_constraint
+    lower_bounds:
+    - 0.029
+    - 0.029
+    - 0.029
+    - 0.029
+    upper_bounds:
+    - 0.148
+    - 0.148
+    - 0.148
+    - 0.148
+  - active_dims:
+    - 0
+    constrained_variable: state
+    constraint_form: bounded_constraint
+    lower_bounds: -1
+    upper_bounds: 2
+  cost: rl_reward
+  ctrl_freq: 50
+  disturbances: null
+  done_on_out_of_bound: true
+  done_on_violation: false
+  episode_len_sec: 6
+  gui: false
+  inertial_prop:
+    Ixx: 1.4e-05
+    Iyy: 1.4e-05
+    Izz: 2.17e-05
+    M: 0.027
+  inertial_prop_randomization_info: null
+  info_in_reset: true
+  info_mse_metric_state_weight:
+  - 1
+  - 0.01
+  - 1
+  - 0.01
+  - 1
+  - 0.01
+  - 0.5
+  - 0.5
+  - 0.5
+  - 0.01
+  - 0.01
+  - 0.01
+  init_state: null
+  init_state_randomization_info:
+    init_p:
+      distrib: uniform
+      high: 0.1
+      low: -0.1
+    init_phi:
+      distrib: uniform
+      high: 0.2
+      low: -0.2
+    init_psi:
+      distrib: uniform
+      high: 0.2
+      low: -0.2
+    init_q:
+      distrib: uniform
+      high: 0.1
+      low: -0.1
+    init_r:
+      distrib: uniform
+      high: 0.1
+      low: -0.1
+    init_theta:
+      distrib: uniform
+      high: 0.2
+      low: -0.2
+    init_x:
+      distrib: uniform
+      high: 1
+      low: -1
+    init_x_dot:
+      distrib: uniform
+      high: 0.1
+      low: -0.1
+    init_y:
+      distrib: uniform
+      high: 1
+      low: -1
+    init_y_dot:
+      distrib: uniform
+      high: 0.1
+      low: -0.1
+    init_z:
+      distrib: uniform
+      high: 2
+      low: 1
+    init_z_dot:
+      distrib: uniform
+      high: 0.1
+      low: -0.1
+  norm_act_scale: 0.1
+  normalized_rl_action_space: true
+  obs_goal_horizon: 1
+  physics: pyb
+  pyb_freq: 1000
+  quad_type: 3
+  randomized_inertial_prop: false
+  randomized_init: true
+  rew_act_weight: 0.0001
+  rew_exponential: true
+  rew_state_weight:
+  - 1
+  - 0.01
+  - 1
+  - 0.01
+  - 1
+  - 0.01
+  - 0.5
+  - 0.5
+  - 0.5
+  - 0.01
+  - 0.01
+  - 0.01
+  seed: 1337
+  task: traj_tracking
+  task_info:
+    num_cycles: 1
+    proj_normal:
+    - 0
+    - 1
+    - 1
+    proj_point:
+    - 0
+    - 0
+    - 0.5
+    trajectory_plane: xz
+    trajectory_position_offset:
+    - 0
+    - 1
+    trajectory_scale: 1
+    trajectory_type: figure8
+  use_constraint_penalty: false
+  verbose: false
+thread: 0
+use_adv: false
+use_gpu: false
+verbose: false
+wandb:
+  entity: dtch1997
+  group: cbf_ppo_quadrotor_3D
+  project: safe-control-gym
