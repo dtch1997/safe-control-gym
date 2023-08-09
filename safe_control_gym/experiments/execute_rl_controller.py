@@ -25,6 +25,9 @@ def train(config):
     # Experiment setup.
     print("Setting up experiment")
     print(yaml.safe_dump(config))
+    config_savepath = os.path.join(config.output_dir, 'config.yaml')
+    with open(config_savepath, 'w') as f:
+        yaml.dump(config, f)
     if not config.restore:
         set_dir_from_config(config)
     set_seed_from_config(config)
@@ -62,6 +65,7 @@ def train(config):
     # Save models 
     wandb.save(os.path.join(config.output_dir, 'model_latest.pt'), base_path = config.output_dir)
     wandb.save(os.path.join(config.output_dir, 'model_best.pt'), base_path = config.output_dir)
+    wandb.save(config_savepath, base_path = config.output_dir)
     print('Training done.')
 
 
