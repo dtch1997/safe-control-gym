@@ -81,7 +81,7 @@ class SAC(BaseController):
         # logging
         if self.training:
             log_file_out = True
-            use_tensorboard = self.tensorboard
+            use_tensorboard = True
         else:
             # disable logging to texts and tfboard for testing
             log_file_out = False

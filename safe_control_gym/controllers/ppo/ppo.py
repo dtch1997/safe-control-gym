@@ -73,7 +73,7 @@ class PPO(BaseController):
         # Logging.
         if self.training:
             log_file_out = True
-            use_tensorboard = self.tensorboard
+            use_tensorboard = True
         else:
             # Disable logging to file and tfboard for evaluation.
             log_file_out = False
