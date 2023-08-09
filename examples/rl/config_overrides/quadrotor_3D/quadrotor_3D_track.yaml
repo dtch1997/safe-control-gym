@@ -127,5 +127,11 @@ task_config:
         - 0.029
         - 0.029
         - 0.029
+    # Ball constraint to avoid origin
+    - constraint_form: quadratic_constraint
+      constrained_variable: state
+      active_dims: [0, 2, 4]
+      P: [[-1, 0, 0], [0, -1, 0], [0, 0, -1]]
+      b: -1.0
   done_on_out_of_bound: True
   done_on_violation: False
