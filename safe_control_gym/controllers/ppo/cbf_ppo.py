@@ -16,6 +16,7 @@ import os
 import time
 import numpy as np
 import torch
+import torch.nn.functional as F
 
 from safe_control_gym.utils.logging import ExperimentLogger
 from safe_control_gym.utils.utils import get_random_state, set_random_state, is_wrapped
@@ -65,7 +66,8 @@ class CBFPPO(BaseController):
                               critic_lr=self.critic_lr,
                               opt_epochs=self.opt_epochs,
                               mini_batch_size=self.mini_batch_size, 
-                              safety_coef=self.safety_coef)
+                              safety_coef=self.safety_coef,
+                              bounded=self.bounded)
         self.agent.to(self.device)
         # Pre-/post-processing.
         self.obs_normalizer = BaseNormalizer()
@@ -156,6 +158,8 @@ class CBFPPO(BaseController):
         '''Performs learning (pre-training, training, fine-tuning, etc).'''
         while self.total_steps < self.max_env_steps:
             results = self.train_step()
+            if self.supervised: 
+                results.update(self.supervised_train_step())  
             # Checkpoint.
             if self.total_steps >= self.max_env_steps or (self.save_interval and self.total_steps % self.save_interval == 0):
                 # Latest/final checkpoint.
@@ -251,7 +255,42 @@ class CBFPPO(BaseController):
             queued_stats = {k: np.asarray(v) for k, v in env.queued_stats.items()}
             eval_results.update(queued_stats)
         return eval_results
+    
+    def supervised_train_step(self):
+        '''Performs a supervised learning step for the cbf.'''
+        self.agent.train()
+        # Set read only because these are not real experience
+        self.obs_normalizer.set_read_only()
+        # TODO: avoid hardcoding
+        states = np.random.uniform(
+            low= - 4 * np.ones((self.rollout_batch_size, self.env.observation_space[0])),
+            high = 4 * np.ones((self.rollout_batch_size, self.env.observation_space[0])),
+        )
+        # Last state is the auxiliary state; in {0, 1}
+        states[:, -1] = np.random.uniform(size = self.rollout_batch_size) > 0.5
 
+        def is_safe(x):
+            x = x[:, :12]
+            low = np.array([-0.5, -1, -2, -1, 0, -1, -0.2, -0.2, -0.2, -1, -1, -1])
+            high = np.array([2, 1, 2, 1, 2, 1, 0.2, 0.2, 0.2, 1, 1, 1])
+            return np.all(low <= x <= high)
+        
+        unsafe_states = states[is_safe(states)]
+        unsafe_states = self.obs_normalizer(unsafe_states)
+        safety_value_pred = self.agent.cbf(torch.FloatTensor(unsafe_states).to(self.device))
+        safety_value_true = torch.zeros_like(safety_value_pred)
+
+        # Compute safety value loss
+        safety_value_loss = F.mse_loss(safety_value_pred, safety_value_true)
+        self.safety_critic_opt.zero_grad()
+        safety_value_loss.backward()
+        self.safety_critic_opt.step()
+
+        results = {
+            'supervised_loss': safety_value_loss.item()
+        }
+        return results       
+ 
     def train_step(self):
         '''Performs a training/fine-tuning step.'''
         self.agent.train()

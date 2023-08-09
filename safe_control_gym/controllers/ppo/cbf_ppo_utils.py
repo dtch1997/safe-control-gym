@@ -28,6 +28,7 @@ class CBFPPOAgent:
                  critic_lr=0.001,
                  opt_epochs=10,
                  mini_batch_size=64,
+                 bounded=False,
                  **kwargs
                  ):
         # Parameters.
@@ -40,6 +41,7 @@ class CBFPPOAgent:
         self.safety_coef = safety_coef
         self.opt_epochs = opt_epochs
         self.mini_batch_size = mini_batch_size
+        self.bounded = bounded
         # Model.
         self.ac = MLPActorCritic(obs_space,
                                  act_space,
@@ -52,7 +54,12 @@ class CBFPPOAgent:
         self.safety_critic_opt = torch.optim.Adam(self._cbf.parameters(), critic_lr)
 
     def cbf(self, state):
-        return self._cbf(state, self.ac.actor(state)[0].sample())
+        h = self._cbf(state, self.ac.actor(state)[0].sample())
+        if not self.bounded:
+            return h
+        else:
+            # TODO: avoid hardcoding
+            return torch.sigmoid(h) * 100
 
     def to(self,
            device
