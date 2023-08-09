@@ -24,7 +24,7 @@ from safe_control_gym.envs.env_wrappers.record_episode_statistics import RecordE
 from safe_control_gym.math_and_models.normalization import BaseNormalizer, MeanStdNormalizer, RewardStdNormalizer
 
 from safe_control_gym.controllers.base_controller import BaseController
-from safe_control_gym.controllers.ppo.ppo_utils import PPOAgent, PPOBuffer, compute_returns_and_advantages
+from safe_control_gym.controllers.ppo.cbf_ppo_utils import CBFPPOAgent, CBFPPOBuffer, compute_returns_and_advantages
 from safe_control_gym.envs.env_wrappers.safety_history_wrapper import SafetyHistoryWrapper
 
 class CBFPPO(BaseController):
@@ -40,7 +40,8 @@ class CBFPPO(BaseController):
                  **kwargs):
         super().__init__(env_func, training, checkpoint_path, output_dir, use_gpu, seed, **kwargs)
         # Add SafetyHistoryWrapper to the env func
-        env_func = lambda **kwargs: SafetyHistoryWrapper(env_func(**kwargs))
+        base_env_func = env_func
+        env_func = lambda **kwargs: SafetyHistoryWrapper(base_env_func(**kwargs))
         # Task.
         if self.training:
             # Training and testing.
@@ -53,7 +54,7 @@ class CBFPPO(BaseController):
             self.env = env_func()
             self.env = RecordEpisodeStatistics(self.env)
         # Agent.
-        self.agent = PPOAgent(self.env.observation_space,
+        self.agent = CBFPPOAgent(self.env.observation_space,
                               self.env.action_space,
                               hidden_dim=self.hidden_dim,
                               use_clipped_value=self.use_clipped_value,
@@ -249,21 +250,22 @@ class CBFPPO(BaseController):
         '''Performs a training/fine-tuning step.'''
         self.agent.train()
         self.obs_normalizer.unset_read_only()
-        rollouts = PPOBuffer(self.env.observation_space, self.env.action_space, self.rollout_steps, self.rollout_batch_size)
+        rollouts = CBFPPOBuffer(self.env.observation_space, self.env.action_space, self.rollout_steps, self.rollout_batch_size)
         obs = self.obs
         start = time.time()
         for _ in range(self.rollout_steps):
             with torch.no_grad():
                 act, v, logp = self.agent.ac.step(torch.FloatTensor(obs).to(self.device))
             next_obs, rew, done, info = self.env.step(act)
-            safety_rew = 1 - info['constraint_violation_in_history']
             next_obs = self.obs_normalizer(next_obs)
             rew = self.reward_normalizer(rew, done)
-            mask = 1 - done.astype(float)
+            mask = 1 - done.astype(float)   
             # Time truncation is not the same as true termination.
             terminal_v = np.zeros_like(v)
+            safety_rew = np.zeros_like(rew)
             for idx, inf in enumerate(info['n']):
                 if 'terminal_info' not in inf:
+                    safety_rew[idx] = 1 - inf['constraint_violated_in_history']
                     continue
                 inff = inf['terminal_info']
                 if 'TimeLimit.truncated' in inff and inff['TimeLimit.truncated']:
@@ -271,7 +273,7 @@ class CBFPPO(BaseController):
                     terminal_obs_tensor = torch.FloatTensor(terminal_obs).unsqueeze(0).to(self.device)
                     terminal_val = self.agent.ac.critic(terminal_obs_tensor).squeeze().detach().cpu().numpy()
                     terminal_v[idx] = terminal_val
-            rollouts.push({'obs': obs, 'act': act, 'rew': rew, 'mask': mask, 'v': v, 'logp': logp, 'terminal_v': terminal_v}, safety_rew=safety_rew)
+            rollouts.push({'obs': obs, 'act': act, 'rew': rew, 'mask': mask, 'v': v, 'logp': logp, 'terminal_v': terminal_v, 'safety_rew':safety_rew})
             obs = next_obs
         self.obs = obs
         self.total_steps += self.rollout_batch_size * self.rollout_steps

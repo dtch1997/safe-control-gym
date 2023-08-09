@@ -21,13 +21,16 @@ def train(config):
             where `dir_path` is the output folder from previous training.
     '''
     # Experiment setup.
+    print("Setting up experiment")
     if not config.restore:
         set_dir_from_config(config)
     set_seed_from_config(config)
     set_device_from_config(config)
     # Define function to create task/env.
+    print("Creating env")
     env_func = partial(make, config.task, output_dir=config.output_dir, **config.task_config)
     # Create the controller/control_agent.
+    print("Creating controller")
     control_agent = make(config.algo,
                          env_func,
                          training=True,

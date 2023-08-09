@@ -30,6 +30,11 @@ register(idx='ppo',
          entry_point='safe_control_gym.controllers.ppo.ppo:PPO',
          config_entry_point='safe_control_gym.controllers.ppo:ppo.yaml')
 
+register(idx='cbf_ppo',
+         entry_point='safe_control_gym.controllers.ppo.cbf_ppo:CBFPPO',
+         config_entry_point='safe_control_gym.controllers.ppo:cbf_ppo.yaml'
+)
+
 register(idx='sac',
          entry_point='safe_control_gym.controllers.sac.sac:SAC',
          config_entry_point='safe_control_gym.controllers.sac:sac.yaml')

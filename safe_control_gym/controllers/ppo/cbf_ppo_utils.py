@@ -289,7 +289,7 @@ class CBFPPOBuffer(object):
             'terminal_v': {
                 'vshape': (T, N, 1)
             },
-            'safety_reward': {
+            'safety_rew': {
                 'vshape': (T, N, 1)
             }
         }

@@ -7,7 +7,7 @@ SYS='cartpole'
 TASK='stab'
 # TASK='track'
 
-ALGO='ppo'
+ALGO='cbf_ppo'
 # ALGO='sac'
 
 if [ "$SYS" == 'cartpole' ]; then
