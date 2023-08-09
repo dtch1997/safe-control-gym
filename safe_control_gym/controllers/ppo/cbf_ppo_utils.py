@@ -45,11 +45,14 @@ class CBFPPOAgent:
                                  act_space,
                                  hidden_dims=[hidden_dim] * 2,
                                  activation='tanh')
-        self.cbf = MLPCritic(obs_space.shape[0], [hidden_dim] * 2, 'tanh')
+        self._cbf = MLPQCritic(obs_space.shape[0], act_space.shape[0], [hidden_dim] * 2, 'tanh')
         # Optimizers.
         self.actor_opt = torch.optim.Adam(self.ac.actor.parameters(), actor_lr)
         self.critic_opt = torch.optim.Adam(self.ac.critic.parameters(), critic_lr)
-        self.safety_critic_opt = torch.optim.Adam(self.cbf.parameters(), critic_lr)
+        self.safety_critic_opt = torch.optim.Adam(self._cbf.parameters(), critic_lr)
+
+    def cbf(self, state):
+        return self._cbf(state, self.ac.actor(state)[0].sample())
 
     def to(self,
            device
@@ -200,6 +203,23 @@ class MLPActor(nn.Module):
             logp_a = dist.log_prob(act)
         return dist, logp_a
 
+
+class MLPQCritic(nn.Module):
+    '''MLP model for Q-value critic.'''
+    def __init__(self,
+                 obs_dim,
+                 act_dim,
+                 hidden_dims,
+                 activation
+                 ):
+        super().__init__()
+        self.q_net = MLP(obs_dim + act_dim, 1, hidden_dims, activation)
+
+    def forward(self,
+                obs,
+                act
+                ):
+        return self.q_net(torch.cat([obs, act], dim=-1))
 
 class MLPCritic(nn.Module):
     '''Critic MLP model.'''
