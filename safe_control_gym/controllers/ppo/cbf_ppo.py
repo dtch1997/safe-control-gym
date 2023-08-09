@@ -88,8 +88,10 @@ class CBFPPO(BaseController):
         '''Do initializations for training or evaluation.'''
         if self.training:
             # set up stats tracking
+            self.env.add_tracker('constraint_violated_in_history', 0, mode='queue')
             self.env.add_tracker('constraint_violation', 0)
             self.env.add_tracker('constraint_violation', 0, mode='queue')
+            self.eval_env.add_tracker('constraint_violated_in_history', 0, mode='queue')
             self.eval_env.add_tracker('constraint_violation', 0, mode='queue')
             self.eval_env.add_tracker('mse', 0, mode='queue')
 
@@ -213,6 +215,7 @@ class CBFPPO(BaseController):
             if not is_wrapped(env, RecordEpisodeStatistics):
                 env = RecordEpisodeStatistics(env, n_episodes)
                 # Add episodic stats to be tracked.
+                env.add_tracker('constraint_violated_in_history', 0, mode='queue')
                 env.add_tracker('constraint_violation', 0, mode='queue')
                 env.add_tracker('constraint_values', 0, mode='queue')
                 env.add_tracker('mse', 0, mode='queue')
@@ -355,12 +358,14 @@ class CBFPPO(BaseController):
             eval_ep_lengths = results['eval']['ep_lengths']
             eval_ep_returns = results['eval']['ep_returns']
             eval_constraint_violation = results['eval']['constraint_violation']
+            eval_constraint_violation_hist = results['eval']['constraint_violated_in_history']
             eval_mse = results['eval']['mse']
             self.logger.add_scalars(
                 {
                     'ep_length': eval_ep_lengths.mean(),
                     'ep_return': eval_ep_returns.mean(),
                     'ep_reward': (eval_ep_returns / eval_ep_lengths).mean(),
+                    'constraint_violated_in_history': eval_constraint_violation_hist.mean(),
                     'constraint_violation': eval_constraint_violation.mean(),
                     'mse': eval_mse.mean()
                 },
