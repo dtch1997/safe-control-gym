@@ -158,8 +158,7 @@ class CBFPPO(BaseController):
         '''Performs learning (pre-training, training, fine-tuning, etc).'''
         while self.total_steps < self.max_env_steps:
             results = self.train_step()
-            if self.supervised: 
-                results.update(self.supervised_train_step())  
+            # results.update(self.supervised_train_step())  
             # Checkpoint.
             if self.total_steps >= self.max_env_steps or (self.save_interval and self.total_steps % self.save_interval == 0):
                 # Latest/final checkpoint.
@@ -258,22 +257,23 @@ class CBFPPO(BaseController):
     
     def supervised_train_step(self):
         '''Performs a supervised learning step for the cbf.'''
+        # TODO: Fix this because it doesn't work
         self.agent.train()
         # Set read only because these are not real experience
         self.obs_normalizer.set_read_only()
         # TODO: avoid hardcoding
         states = np.random.uniform(
-            low= - 4 * np.ones((self.rollout_batch_size, self.env.observation_space[0])),
-            high = 4 * np.ones((self.rollout_batch_size, self.env.observation_space[0])),
+            low= - 2 * np.ones((256, self.env.observation_space.shape[0])),
+            high = 2 * np.ones((256, self.env.observation_space.shape[0])),
         )
         # Last state is the auxiliary state; in {0, 1}
-        states[:, -1] = np.random.uniform(size = self.rollout_batch_size) > 0.5
+        states[:, -1] = np.random.uniform(size = 256) > 0.5
 
         def is_safe(x):
             x = x[:, :12]
             low = np.array([-0.5, -1, -2, -1, 0, -1, -0.2, -0.2, -0.2, -1, -1, -1])
             high = np.array([2, 1, 2, 1, 2, 1, 0.2, 0.2, 0.2, 1, 1, 1])
-            return np.all(low <= x <= high)
+            return np.logical_and((low <= x).all(axis=-1), (x <= high).all(axis=-1))
         
         unsafe_states = states[is_safe(states)]
         unsafe_states = self.obs_normalizer(unsafe_states)
@@ -282,13 +282,14 @@ class CBFPPO(BaseController):
 
         # Compute safety value loss
         safety_value_loss = F.mse_loss(safety_value_pred, safety_value_true)
-        self.safety_critic_opt.zero_grad()
-        safety_value_loss.backward()
-        self.safety_critic_opt.step()
-
         results = {
             'supervised_loss': safety_value_loss.item()
         }
+
+        safety_value_loss *= self.supervise_coef
+        self.agent.safety_critic_opt.zero_grad()
+        safety_value_loss.backward()
+        self.agent.safety_critic_opt.step()
         return results       
  
     def train_step(self):
