@@ -128,8 +128,10 @@ def test_policy(config):
         pickle.dump(results, f)
     ep_lengths = results['ep_lengths']
     ep_returns = results['ep_returns']
+    ep_constraint_violations = results['ep_constraint_violations']
     msg = 'eval_ep_length {:.2f} +/- {:.2f}\n'.format(ep_lengths.mean(), ep_lengths.std())
     msg += 'eval_ep_return {:.3f} +/- {:.3f}\n'.format(ep_returns.mean(), ep_returns.std())
+    msg += 'eval_ep_constraint_violation {:.3f} +/- {:.3f}\n'.format(ep_constraint_violations.mean(), ep_constraint_violations.std())
     print(msg)
     if 'frames' in results:
         save_video(os.path.join(eval_output_dir, 'video.gif'), results['frames'])
