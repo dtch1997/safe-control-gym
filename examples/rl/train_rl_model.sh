@@ -30,6 +30,6 @@ do
             --output_dir ./ \
             --tag ${ALGO}_${SYS}_${TASK}/ \
             --seed $seed \
-            --kv_overrides task_config.safety_coef=$safety_coef wandb.group='expt'
+            --kv_overrides algo_config.safety_coef=$safety_coef wandb.group='expt'
     done
 done
