@@ -220,28 +220,35 @@ class CBFPPO(BaseController):
                 env.add_tracker('constraint_values', 0, mode='queue')
                 env.add_tracker('mse', 0, mode='queue')
 
+        obses = []
+        trajectories = []
         obs, info = env.reset()
+        obses.append(obs)
         obs = self.obs_normalizer(obs)
         ep_returns, ep_lengths = [], []
         frames = []
         while len(ep_returns) < n_episodes:
             action = self.select_action(obs=obs, info=info)
             obs, _, done, info = env.step(action)
+            obses.append(obs)
             if render:
-                env.render()
-                frames.append(env.render('rgb_array'))
+                # env.render()
+                frames.append(env.render())
             if verbose:
                 print(f'obs {obs} | act {action}')
             if done:
                 assert 'episode' in info
                 ep_returns.append(info['episode']['r'])
                 ep_lengths.append(info['episode']['l'])
+                trajectories.append(np.array(obses))
+                obses = []
                 obs, _ = env.reset()
+                obses.append(obs)
             obs = self.obs_normalizer(obs)
         # Collect evaluation results.
         ep_lengths = np.asarray(ep_lengths)
         ep_returns = np.asarray(ep_returns)
-        eval_results = {'ep_returns': ep_returns, 'ep_lengths': ep_lengths}
+        eval_results = {'ep_returns': ep_returns, 'ep_lengths': ep_lengths, 'obs_hist': np.asarray(trajectories)}
         if len(frames) > 0:
             eval_results['frames'] = frames
         # Other episodic stats from evaluation env.
