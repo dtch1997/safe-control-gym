@@ -4,6 +4,7 @@ import os
 import pickle
 from functools import partial
 
+import wandb
 import torch
 
 from safe_control_gym.utils.configuration import ConfigFactory
@@ -26,6 +27,15 @@ def train(config):
         set_dir_from_config(config)
     set_seed_from_config(config)
     set_device_from_config(config)
+
+    wandb.init(
+        project="safe-control-gym",
+        entity="dtch1997",
+        name='run',
+        config=config,
+        sync_tensorboard=True
+    )
+
     # Define function to create task/env.
     print("Creating env")
     env_func = partial(make, config.task, output_dir=config.output_dir, **config.task_config)

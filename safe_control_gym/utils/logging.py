@@ -5,7 +5,6 @@ import logging
 import os
 import numpy as np
 import imageio
-import wandb
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -126,12 +125,6 @@ class ExperimentLogger:
             log_file_out (bool): if to write data logs to text files.
             use_tensorboard (bool): if to use tensorboard.
         '''
-        wandb.init(
-            project="safe-control-gym",
-            entity="dtch1997",
-            name='run',
-            sync_tensorboard=True
-        )
 
         self.log_dir = log_dir
         os.makedirs(log_dir, exist_ok=True)
