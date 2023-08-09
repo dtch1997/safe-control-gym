@@ -26,3 +26,8 @@ algo_config:
   eval_interval: 1000
   eval_save_best: True
   tensorboard: True
+
+wandb:
+  project: 'safe-control-gym'
+  entity: 'dtch1997'
+  group: 'cbf_ppo_quadrotor_3D'

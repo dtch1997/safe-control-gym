@@ -28,10 +28,12 @@ def train(config):
     set_seed_from_config(config)
     set_device_from_config(config)
 
+    name = f"{config.algo}_{config.task}_{config.task_config.task}_{config.algo_config.safety_coef}"
     wandb.init(
-        project="safe-control-gym",
-        entity="dtch1997",
-        name='run',
+        project=config.wandb.project,
+        entity=config.wandb.entity,
+        group=config.wandb.group,
+        name=name,
         config=config,
         sync_tensorboard=True
     )
