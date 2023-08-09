@@ -30,9 +30,12 @@ do
                     ./config_overrides/${SYS}/${ALGO}_${SYS}.yaml \
                     ./config_overrides/${SYS}/${SYS}_${TASK}.yaml \
                 --output_dir ./ \
-                --tag ${ALGO}_${SYS}_${TASK}_bounded=${bounded}/ \
+                --tag bounded=${bounded}_seed=${seed}/ \
                 --seed $seed \
-                --kv_overrides algo_config.safety_coef=$safety_coef wandb.group='ablations'
+                --kv_overrides \
+                    wandb.group=${ALGO}_${SYS}_${TASK}_ablations \
+                    algo_config.safety_coef=$safety_coef \
+                    algo_config.bounded=$bounded
         done
     done
 done
