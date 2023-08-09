@@ -5,6 +5,7 @@ import pickle
 from functools import partial
 
 import wandb
+import yaml
 import torch
 
 from safe_control_gym.utils.configuration import ConfigFactory
@@ -23,6 +24,7 @@ def train(config):
     '''
     # Experiment setup.
     print("Setting up experiment")
+    print(yaml.safe_dump(config))
     if not config.restore:
         set_dir_from_config(config)
     set_seed_from_config(config)
@@ -58,8 +60,8 @@ def train(config):
     control_agent.learn()
     control_agent.close()
     # Save models 
-    wandb.save(os.path.join(config.output_dir, 'model_latest.pt'))
-    wandb.save(os.path.join(config.output_dir, 'model_best.pt'))
+    wandb.save(os.path.join(config.output_dir, 'model_latest.pt'), base_path = config.output_dir)
+    wandb.save(os.path.join(config.output_dir, 'model_best.pt'), base_path = config.output_dir)
     print('Training done.')
 
 
