@@ -57,6 +57,9 @@ def train(config):
     # Training.
     control_agent.learn()
     control_agent.close()
+    # Save models 
+    wandb.save(os.path.join(config.output_dir, 'model_latest.pt'))
+    wandb.save(os.path.join(config.output_dir, 'model_best.pt'))
     print('Training done.')
 
 
@@ -94,7 +97,7 @@ def test_policy(config):
     else:
         env_seed = None
     # Define function to create task/env.
-    env_func = partial(make, config.task, seed=env_seed, output_dir=config.output_dir, **config.task_config)
+    env_func = partial(make, config.task, output_dir=config.output_dir, **config.task_config)
     # Create the controller/control_agent.
     control_agent = make(config.algo,
                          env_func,
@@ -108,10 +111,10 @@ def test_policy(config):
     if config.restore:
         control_agent.load(os.path.join(config.restore, 'model_latest.pt'))
     # Test controller.
+    print("Evaluating on {} episodes".format(config.algo_config.eval_batch_size))
     results = control_agent.run(n_episodes=config.algo_config.eval_batch_size,
                                 render=config.render,
-                                verbose=config.verbose,
-                                use_adv=config.use_adv)
+                                verbose=config.verbose)
     # Save evalution results.
     if config.eval_output_dir is not None and config.eval_output_dir:
         eval_output_dir = config.eval_output_dir
@@ -130,6 +133,9 @@ def test_policy(config):
     print(msg)
     if 'frames' in results:
         save_video(os.path.join(eval_output_dir, 'video.gif'), results['frames'])
+    if 'obs_hist' in results:
+        import numpy as np
+        np.save(os.path.join(config.restore, 'obs_hist.npy'), results['obs_hist'])
     control_agent.close()
     print('Evaluation done.')
 
