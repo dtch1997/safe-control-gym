@@ -35,7 +35,9 @@ do
                 --kv_overrides \
                     wandb.group=${ALGO}_${SYS}_${TASK}_ablations \
                     algo_config.safety_coef=$safety_coef \
-                    algo_config.bounded=$bounded
+                    algo_config.bounded=$bounded \
+                    algo_config.max_env_steps=2000000 \
+                    use_gpu=True
         done
     done
 done
