@@ -72,8 +72,10 @@ class CBFPPOAgent:
         '''Snapshots agent state.'''
         return {
             'ac': self.ac.state_dict(),
+            'cbf': self._cbf.state_dict(),
             'actor_opt': self.actor_opt.state_dict(),
-            'critic_opt': self.critic_opt.state_dict()
+            'critic_opt': self.critic_opt.state_dict(),
+            'safety_critic_opt': self.safety_critic_opt.state_dict()
         }
 
     def load_state_dict(self,
@@ -81,8 +83,10 @@ class CBFPPOAgent:
                         ):
         '''Restores agent state.'''
         self.ac.load_state_dict(state_dict['ac'])
+        self._cbf.load_state_dict(state_dict['cbf'])
         self.actor_opt.load_state_dict(state_dict['actor_opt'])
         self.critic_opt.load_state_dict(state_dict['critic_opt'])
+        self.safety_critic_opt.load_state_dict(state_dict['safety_critic_opt'])
 
     def compute_policy_loss(self,
                             batch
